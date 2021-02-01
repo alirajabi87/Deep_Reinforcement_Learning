@@ -1,6 +1,7 @@
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.chdir('D:\\PycharmProjects\\ML-For-Accelerator\\Deep_Reinforcement_Learning')
 
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
@@ -33,7 +34,7 @@ MIN_REWARD = -200  # For model save
 EPISODES = 20_000
 
 # exploration settings
-epsilon = 0.8
+epsilon = 1
 EPSILON_DECAY = 0.99975
 MIN_EPSILON = 0.001
 
@@ -91,37 +92,50 @@ class DQNAgent(Model):
 
         self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)  # it is used for sampling from 50000 to make batches
         self.tensorboard = ModifiedTensorBoard(log_dir=f"logs/Modified/{MODEL_NAME}-{int(time.time())}")
-        self.tensorboard1 = TensorBoard(log_dir="../logs/train\\")
+        self.tensorboard1 = TensorBoard(log_dir="..\\logs\\train\\")
         self.target_update_counter = 0
 
     def create_model(self, env):
+        global epsilon
+        # print(os.getcwd())
         if os.path.isfile('../models/temp.h5'):
+            print("Model is loading...")
             model = tf.keras.models.load_model('../models/temp.h5')
-            epsilon = 0.1
+            epsilon = 0.0
             print("Model is loaded")
         else:
             print("Creating Model from Model.model")
-            i = Input(env.OBSERVATION_SPACE_VALUES)
-            x = Conv2D(256, (3, 3))(i)
-            x = BatchNormalization()(x)
-            x = Activation('relu')(x)
-            x = MaxPooling2D((2, 2))(x)
+            # i = Input(env.OBSERVATION_SPACE_VALUES)
+            # x = Conv2D(256, (3, 3))(i)
+            # # x = BatchNormalization()(x)
+            # x = Activation('relu')(x)
+            # x = MaxPooling2D((2, 2))(x)
+            #
+            # x = Conv2D(256, (3, 3))(x)
+            # # x = BatchNormalization()(x)
+            # x = Activation('relu')(x)
+            # x = MaxPooling2D((2, 2))(x)
+            #
+            # x = Flatten()(x)
+            # x = Dense(128)(x)
+            # x = Activation('relu')(x)
+            # x = Dropout(0.4)(x)
+            # x = Dense(64)(x)
+            # x = Activation('relu')(x)
+            # x = Dropout(0.4)(x)
+            # prediction = Dense(env.ACTION_SPACE_SIZE, activation='linear')(x)  # linear softmax
+            #
+            # model = Model(inputs=i, outputs=prediction)
 
-            x = Conv2D(256, (3, 3))(x)
-            x = BatchNormalization()(x)
-            x = Activation('relu')(x)
-            x = MaxPooling2D((2, 2))(x)
-
-            x = Flatten()(x)
-            x = Dense(128)(x)
-            x = Activation('relu')(x)
-            x = Dropout(0.4)(x)
-            x = Dense(64)(x)
-            x = Activation('relu')(x)
-            x = Dropout(0.4)(x)
-            prediction = Dense(env.ACTION_SPACE_SIZE, activation='linear')(x)  # linear softmax
-
-            model = Model(inputs=i, outputs=prediction)
+            model = Sequential()
+            model.add(Conv2D(256, (3,3), activation='relu', input_shape=env.OBSERVATION_SPACE_VALUES))
+            model.add(MaxPooling2D(2,2))
+            model.add(Conv2D(256, (3,3), activation='relu'))
+            model.add(MaxPooling2D(2,2))
+            model.add(Flatten())
+            model.add(Dense(64, activation='relu'))
+            model.add(Dropout(0.3))
+            model.add(Dense(env.ACTION_SPACE_SIZE, activation='linear'))
             print(model.summary())
             model.compile(optimizer=Adam(learning_rate=0.001), loss="mse", metrics=['accuracy'])
 
@@ -134,7 +148,6 @@ class DQNAgent(Model):
         return self.model.predict(np.array(state).reshape(-1, *state.shape) / 255.)[0]
 
     def train(self, terminal_state, step):
-        batchSize = 32
         if len(self.replay_memory) < MIN_REPLAY_MEMORY_SIZE:
             # print(f"in the if statement in train {len(self.replay_memory)}")
             return
@@ -172,7 +185,8 @@ class DQNAgent(Model):
             self.target_update_counter += 1
 
         if self.target_update_counter > UPDATE_TARGET_EVERY:
-            self.target_model.set_weights((self.model.get_weights()))
+            # print("Updating target model")
+            self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
 
 
@@ -369,4 +383,6 @@ for episode in tqdm(range(1, EPISODES + 1), ascii=True, unit='episodes'):
 
     if epsilon > MIN_EPSILON:
         epsilon *= EPSILON_DECAY
-        epsilon = max(epsilon, MIN_EPSILON)
+        epsilon = max(MIN_EPSILON, epsilon)
+
+
